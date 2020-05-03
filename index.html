@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	<meta name="description" content="Demo App">
+	<meta name="author" content="Pavankumar Sakhare">
+	<title>Restaurants Finder !!</title>
+	<link href="css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+  	<nav class="navbar navbar-expand-lg navbar-dark bg-dark static-top">
+	    <div class="container">
+	      <a class="navbar-brand" href="#">Restaurants Finder</a>
+	      <a class="btn btn-danger" href="#" onClick="window.location.reload();" title="Refresh Page">Refresh Page</a>
+	    </div>
+  	</nav>
+
+	<div class="container">
+	    <div class="row">
+	      <div class="col-lg-12 text-center">
+	        <h1 class="mt-5">Find Best Restaurants In Your Town !!</h1>
+	        <p class="lead">Click on Browse option to Select *CSV File</p>
+	      </div>
+	    </div>
+	</div>
+
+  	<div id="app_demo">
+	  <div class="container">
+	    <div class="panel panel-sm">
+	      
+	      <div class="panel-body">
+	      	<div class="form-group">
+			    <div class="input-group mb-3" v-if="hide_if_loaded">
+			      <div class="custom-file">
+			        <input type="file" class="custom-file-input" id="inputGroupFile02">
+			        <input  type="file" 
+	            			id="csv_file" 
+	            			name="csv_file" 
+	            			class="form-control" 
+	            			@change="loadCSV($event)">
+			        <label class="custom-file-label" for="csv_file">Choose file</label>
+			      </div>
+			</div>
+
+	        <div class="form-group">
+	        	<div class="row" v-if="!hide_if_loaded">
+	        		<div class="col-sm-3">
+	        			<select v-model="column" class="form-control">
+					    	<option :value="null">No Column Filter</option>
+					    	<option v-for="key in parse_header"
+			                    	@click="sortBy(key)"
+			                    	:class="{ active: sortKey == key }">{{ key | capitalize }}</option>
+					  	</select>
+	        		</div>
+	        		
+	        		<div class="col-lg-9">
+	        			<input 	class="form-control" 
+	        					type="text"
+	        					v-model="search" 
+	        					placeholder="Search anything... !!">
+	        		</div>
+	        	</div>
+			</div>
+
+			<div class="form-group">
+				<table class="table table-hover table-bordered " v-if="parse_csv">
+		          <thead>
+		            <tr class="table-primary">
+		              <th v-for="key in parse_header"
+		                  @click="sortBy(key)"
+		                  :class="{ active: sortKey == key }">
+		                {{ key | capitalize }}
+		                <span class="arrow" :class="sortOrders[key] > 0 ? 'asc' : 'dsc'">
+		                </span>
+		              </th>
+		            </tr>
+		          </thead> 
+		          <tbody>
+		          	<tr v-for="csv in parse_csv_search">
+			            <td v-for="key in parse_header">
+			              {{csv[key]}}
+			            </td>
+			          </tr>
+		          </tbody>
+		        </table>
+			</div>
+	      </div>
+	    </div>
+	  </div>
+  	</div>
+
+  <script src="jquery/jquery.slim.min.js"></script>
+  <script src="js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@9"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.11/vue.min.js" integrity="sha256-ngFW3UnAN0Tnm76mDuu7uUtYEcG3G5H1+zioJw3t+68=" crossorigin="anonymous"></script>
+  <script>
+  	$( document ).ready(function() 
+  	{
+    	new Vue({
+	  		el: "#app_demo",
+	  		data: 
+	  		{
+			    channel_name: '',
+			    channel_fields: [],
+			    channel_entries: [],
+			    parse_header: [],
+			    parse_csv: [],
+			    sortOrders:{},
+			    sortKey: '',
+			    search: null,
+	    		column: null,
+	    		hide_if_loaded : true,
+	  		},
+
+			computed: 
+			{
+				//search filter w.r.t selected column && user input combination
+			  	parse_csv_search () 
+			  	{
+			      if (!this.parse_csv.length) 
+			      {
+			        return []
+			      }
+			      
+			      return this.parse_csv.filter(item => {
+			        let props = (this.search && this.column) ? [item[this.column]] : Object.values(item)
+			        
+			        return props.some(prop => !this.search || ((typeof prop === 'string') ? prop.includes(this.search) : prop.toString(10).includes(this.search)))
+			      })
+			    }
+			},
+
+			filters: 
+			{
+				//capitalize first letter of table header
+			    capitalize: function (str) 
+			    {
+			      return str.charAt(0).toUpperCase() + str.slice(1)
+			    }
+			},
+
+			methods: 
+			{
+			    sortBy: function (key) 
+			    {
+			      var demo_data = this
+			      demo_data.sortKey = key
+			      demo_data.sortOrders[key] = demo_data.sortOrders[key] * -1
+			    },
+
+			    //getting csv data to vue js component
+			    csvJSON(csv)
+			    {
+			      var demo_data = this
+
+			      //pattern detection for multiple items in double quotes
+			      var pattern = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+
+			      var lines = csv.split("\n")
+			      var result = []
+
+			      //load csv header data
+			      var headers = lines[0].split(pattern)
+			      demo_data.parse_header = lines[0].split(pattern) 
+
+			      //csv row data
+			      lines[0].split(pattern).forEach(function (key) {
+			        demo_data.sortOrders[key] = 1
+			      })
+			      
+			      lines.map(function(line, indexLine){
+			        if (indexLine < 1) return // Jump header line
+			        
+			        var obj = {}
+			        var currentline = line.split(pattern)
+			        
+			        headers.map(function(header, indexHeader){
+			          obj[header] = currentline[indexHeader]
+			        })
+			        
+			        result.push(obj)
+			      })
+			      
+			      result.pop()
+			   
+			      return result
+			    },
+
+			    //event trigger for after selection of csv file
+			    loadCSV(e) 
+			    {
+			      var demo_data = this
+
+			      if (window.FileReader) 
+			      {
+			        var reader = new FileReader();
+			        reader.readAsText(e.target.files[0]);
+			        
+			        //on successfull load of csv data
+			        reader.onload = function(event) 
+			        {
+			          	var csv = event.target.result;
+			          	demo_data.parse_csv = demo_data.csvJSON(csv)
+			          
+						Swal.fire(
+						  'Good job!',
+						  'CSV File imported successfully, With Column Filters available !!',
+						  'success'
+						);
+			          
+			          	demo_data.hide_if_loaded = false
+			        };
+
+			        //exception 1 - file not supported
+			        reader.onerror = function(evt) 
+			        {
+			          if(evt.target.error.name == "NotReadableError") 
+			          {
+			            Swal.fire(
+						  'Error !',
+						  'Can not read CSV File',
+						  'error'
+						);
+			          }
+			        };
+			      } 
+			      else 
+			      {
+			      	//exception 2 - file reader not supported in browser
+			      	Swal.fire(
+						  'Error !',
+						  'FileReader are not supported in this browser.',
+						  'error'
+						);
+			      }
+			    },
+			},
+		});  
+	});	  	
+  </script>
+</body>
+</html>
