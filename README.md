@@ -1,4 +1,4 @@
-## HackerEarth Paypal Fullstack Developer Challenge 
+## Restaurants Finder App - Vue.Js
 
 This is Vue.JS app for Restaurants Finder With CSV data with multiple search filters
 
